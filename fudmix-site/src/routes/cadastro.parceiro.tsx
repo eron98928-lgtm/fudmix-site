@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/cadastro/parceiro")({
   head: () => ({
@@ -28,14 +29,14 @@ type FormData = {
   schedule: string;
   radius: string;
   deliveryFee: string;
-  hasPhoto: boolean;
+  photo: File | null;
 };
 
 const initial: FormData = {
   name: "", email: "", phone: "", password: "",
   razaoSocial: "", cnpj: "", address: "",
   schedule: "", radius: "5", deliveryFee: "",
-  hasPhoto: false,
+  photo: null,
 };
 
 function ParceiroCadastroPage() {
@@ -44,16 +45,18 @@ function ParceiroCadastroPage() {
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [cnpjValid, setCnpjValid] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = <K extends keyof FormData>(k: K, v: FormData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
 
-  const validateCnpj = async () => {
+  const validateCnpj = async (): Promise<boolean> => {
     const clean = data.cnpj.replace(/\D/g, "");
     if (clean.length !== 14) {
       setCnpjError("CNPJ inválido");
       setCnpjValid(false);
-      return;
+      return false;
     }
     setCnpjLoading(true);
     setCnpjError(null);
@@ -61,24 +64,84 @@ function ParceiroCadastroPage() {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
       if (!r.ok) throw new Error("CNPJ não encontrado");
       const json = await r.json();
-      set("razaoSocial", json.razao_social || data.razaoSocial);
-      if (!data.address && json.logradouro) {
-        set("address", `${json.logradouro}, ${json.numero ?? ""} — ${json.municipio}/${json.uf}`);
-      }
+      setData((d) => ({
+        ...d,
+        razaoSocial: json.razao_social || d.razaoSocial,
+        address: d.address || (json.logradouro
+          ? `${json.logradouro}, ${json.numero ?? ""} — ${json.municipio}/${json.uf}`
+          : d.address),
+      }));
       setCnpjValid(true);
+      return true;
     } catch {
       setCnpjError("Não conseguimos validar este CNPJ. Verifique e tente novamente.");
       setCnpjValid(false);
+      return false;
     } finally {
       setCnpjLoading(false);
     }
   };
 
-  const next = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (step < 4) setStep((s) => (s + 1) as Step);
-    else setStep(5);
+  const handleSignup = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            phone: data.phone,
+            role: "parceiro",
+            razao_social: data.razaoSocial,
+            cnpj: data.cnpj.replace(/\D/g, ""),
+            address: data.address,
+            schedule: data.schedule,
+            radius: data.radius,
+            delivery_fee: data.deliveryFee,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (authData.user && data.photo) {
+        const ext = data.photo.name.split(".").pop() ?? "jpg";
+        await supabase.storage
+          .from("partner-photos")
+          .upload(`${authData.user.id}/photo.${ext}`, data.photo, { upsert: true });
+      }
+
+      setStep(5);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Erro inesperado. Tente novamente.";
+      setSubmitError(
+        message === "User already registered"
+          ? "Este e-mail já está cadastrado."
+          : message,
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  const next = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+
+    if (step === 2 && !cnpjValid) {
+      const ok = await validateCnpj();
+      if (!ok) return;
+    }
+
+    if (step < 4) {
+      setStep((s) => (s + 1) as Step);
+    } else {
+      await handleSignup();
+    }
+  };
+
   const prev = () => setStep((s) => (s - 1) as Step);
 
   if (step === 5) {
@@ -126,7 +189,7 @@ function ParceiroCadastroPage() {
               <Field label="Nome completo" value={data.name} onChange={(v) => set("name", v)} required />
               <Field label="Email" type="email" value={data.email} onChange={(v) => set("email", v)} required />
               <Field label="Telefone" type="tel" value={data.phone} onChange={(v) => set("phone", v)} required placeholder="(11) 99999-9999" />
-              <Field label="Senha" type="password" value={data.password} onChange={(v) => set("password", v)} required placeholder="Mínimo 8 caracteres" />
+              <Field label="Senha" type="password" value={data.password} onChange={(v) => set("password", v)} required placeholder="Mínimo 8 caracteres" minLength={8} />
             </StepBlock>
           )}
 
@@ -174,7 +237,7 @@ function ParceiroCadastroPage() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => set("hasPhoto", !!e.target.files?.length)}
+                  onChange={(e) => set("photo", e.target.files?.[0] ?? null)}
                   className="mt-2 w-full rounded-md border border-dashed border-border bg-background px-4 py-8 text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary-dim"
                 />
               </div>
@@ -192,17 +255,30 @@ function ParceiroCadastroPage() {
                 <input type="checkbox" required className="mt-1 size-4 accent-primary" />
                 <span>Aceito os <Link to="/termos" className="text-primary hover:underline">termos</Link> e a <Link to="/privacidade" className="text-primary hover:underline">política de privacidade</Link>.</span>
               </label>
+              {submitError && (
+                <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {submitError}
+                </p>
+              )}
             </StepBlock>
           )}
 
           <div className="mt-8 flex items-center justify-between gap-3">
             {step > 1 ? (
-              <button type="button" onClick={prev} className="inline-flex items-center gap-2 rounded-md border border-border px-5 py-3 text-sm font-medium text-foreground hover:border-primary">
+              <button type="button" onClick={prev} disabled={submitting} className="inline-flex items-center gap-2 rounded-md border border-border px-5 py-3 text-sm font-medium text-foreground hover:border-primary disabled:opacity-50">
                 <ArrowLeft size={16} /> Anterior
               </button>
             ) : <span />}
-            <button type="submit" className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary-dim">
-              {step === 4 ? "Enviar cadastro" : "Continuar"} <ArrowRight size={16} />
+            <button
+              type="submit"
+              disabled={submitting || cnpjLoading}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary-dim disabled:opacity-60"
+            >
+              {submitting ? (
+                <><Loader2 size={16} className="animate-spin" /> Enviando…</>
+              ) : (
+                <>{step === 4 ? "Enviar cadastro" : "Continuar"} <ArrowRight size={16} /></>
+              )}
             </button>
           </div>
         </form>
@@ -221,7 +297,15 @@ function StepBlock({ title, subtitle, children }: { title: string; subtitle: str
   );
 }
 
-function Field({ label, value, onChange, type = "text", required, placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; placeholder?: string }) {
+function Field({ label, value, onChange, type = "text", required, placeholder, minLength }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  placeholder?: string;
+  minLength?: number;
+}) {
   return (
     <div>
       <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">{label}</label>
@@ -231,6 +315,7 @@ function Field({ label, value, onChange, type = "text", required, placeholder }:
         type={type}
         required={required}
         placeholder={placeholder}
+        minLength={minLength}
         className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
     </div>
