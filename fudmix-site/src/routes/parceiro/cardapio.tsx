@@ -19,11 +19,12 @@ type Item = {
   is_available: boolean;
   prep_time_minutes: number;
   establishment_id: string;
+  ingredients: string | null;
 };
 
 const emptyForm = {
   name: "", description: "", price: "", category: "",
-  is_available: true, prep_time_minutes: "30",
+  is_available: true, prep_time_minutes: "30", ingredients: "",
 };
 
 function ParceiroCardapio() {
@@ -74,8 +75,11 @@ function ParceiroCardapio() {
 
   const openEdit = (item: Item) => {
     setEditing(item);
-    setForm({ name: item.name, description: item.description, price: String(item.price),
-      category: item.category, is_available: item.is_available, prep_time_minutes: String(item.prep_time_minutes) });
+    setForm({
+      name: item.name, description: item.description, price: String(item.price),
+      category: item.category, is_available: item.is_available,
+      prep_time_minutes: String(item.prep_time_minutes), ingredients: item.ingredients ?? "",
+    });
     setPhoto(null);
     setPhotoPreview(item.photo_url);
     setShowForm(true);
@@ -101,8 +105,7 @@ function ParceiroCardapio() {
         const ext = photo.name.split(".").pop() ?? "jpg";
         const path = `${estId}/${itemId}.${ext}`;
         const { error: uploadError } = await supabase.storage
-          .from("menu-photos")
-          .upload(path, photo, { upsert: true });
+          .from("menu-photos").upload(path, photo, { upsert: true });
         if (!uploadError) {
           const { data: urlData } = supabase.storage.from("menu-photos").getPublicUrl(path);
           photo_url = urlData.publicUrl;
@@ -110,14 +113,10 @@ function ParceiroCardapio() {
       }
 
       const payload = {
-        name: form.name,
-        description: form.description,
-        price: parseFloat(form.price),
-        category: form.category,
-        is_available: form.is_available,
-        prep_time_minutes: parseInt(form.prep_time_minutes),
-        establishment_id: estId,
-        photo_url,
+        name: form.name, description: form.description,
+        price: parseFloat(form.price), category: form.category,
+        is_available: form.is_available, prep_time_minutes: parseInt(form.prep_time_minutes),
+        establishment_id: estId, photo_url, ingredients: form.ingredients || null,
       };
 
       if (editing) {
@@ -196,7 +195,7 @@ function ParceiroCardapio() {
                     {item.photo_url ? (
                       <img src={item.photo_url} alt={item.name} className="size-16 rounded-lg object-cover flex-shrink-0" />
                     ) : (
-                      <div className="size-16 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0">
+                      <div className="size-16 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0 border border-dashed border-border">
                         <ImagePlus size={20} className="text-muted-foreground" />
                       </div>
                     )}
@@ -208,6 +207,7 @@ function ParceiroCardapio() {
                           : <span className="inline-flex items-center gap-1 text-xs text-red-400"><XCircle size={12} /> Indisponível</span>}
                       </div>
                       {item.description && <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>}
+                      {item.ingredients && <p className="mt-0.5 text-xs text-muted-foreground/70">🧾 {item.ingredients}</p>}
                       <p className="mt-1 text-sm font-semibold text-primary">R$ {item.price.toFixed(2)} · {item.prep_time_minutes} min</p>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
@@ -235,8 +235,6 @@ function ParceiroCardapio() {
           <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="mb-6 font-display text-xl uppercase">{editing ? "Editar item" : "Novo item"}</h2>
             <form onSubmit={handleSave} className="grid gap-4">
-
-              {/* Foto */}
               <div>
                 <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">Foto do prato</label>
                 <div className="flex items-center gap-4">
@@ -253,9 +251,9 @@ function ParceiroCardapio() {
                   </label>
                 </div>
               </div>
-
               <Field label="Nome" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
               <Field label="Descrição" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
+              <Field label="Ingredientes" value={form.ingredients} onChange={v => setForm(f => ({ ...f, ingredients: v }))} placeholder="Ex: Pão, carne, queijo, alface, tomate" />
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Preço (R$)" type="number" value={form.price} onChange={v => setForm(f => ({ ...f, price: v }))} required />
                 <Field label="Tempo preparo (min)" type="number" value={form.prep_time_minutes} onChange={v => setForm(f => ({ ...f, prep_time_minutes: v }))} required />
