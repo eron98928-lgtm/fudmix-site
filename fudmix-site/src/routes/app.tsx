@@ -76,7 +76,7 @@ function AppPage() {
     );
   };
 
-  const loadEstablishments() = async () => {
+  const loadEstablishments = async () => {
     const { data } = await supabase.from("establishments").select("*").eq("is_active", true);
     setEstablishments(data ?? []);
   };
