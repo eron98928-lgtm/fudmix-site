@@ -102,12 +102,13 @@ function ParceiroDashboard() {
               </dl>
             </div>
 
-            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
-              <p className="text-sm text-foreground/70">
-                <strong className="text-primary">Em breve:</strong> gestão de cardápio, pedidos recebidos e relatórios financeiros.
-              </p>
-            </div>
-          </>
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 flex items-center justify-between">
+  <p className="text-sm text-foreground/70">Gerencie os itens do seu cardápio.</p>
+  <Link to="/parceiro/cardapio"
+    className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-dim">
+    Ver cardápio
+  </Link>
+</div>
         ) : (
           <div className="rounded-2xl border border-border/50 bg-surface p-10 text-center">
             <Store size={48} className="mx-auto text-muted-foreground mb-4" strokeWidth={1.2} />
