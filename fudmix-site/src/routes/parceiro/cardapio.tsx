@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Plus, Pencil, Trash2, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, ArrowLeft, CheckCircle2, XCircle, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/parceiro/cardapio")({
@@ -33,6 +33,8 @@ function ParceiroCardapio() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Item | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
@@ -62,25 +64,62 @@ function ParceiroCardapio() {
     setItems(data ?? []);
   };
 
-  const openNew = () => { setEditing(null); setForm(emptyForm); setShowForm(true); };
+  const openNew = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setPhoto(null);
+    setPhotoPreview(null);
+    setShowForm(true);
+  };
+
   const openEdit = (item: Item) => {
     setEditing(item);
     setForm({ name: item.name, description: item.description, price: String(item.price),
       category: item.category, is_available: item.is_available, prep_time_minutes: String(item.prep_time_minutes) });
+    setPhoto(null);
+    setPhotoPreview(item.photo_url);
     setShowForm(true);
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!estId) return;
     setSaving(true);
-    const payload = {
-      name: form.name, description: form.description,
-      price: parseFloat(form.price), category: form.category,
-      is_available: form.is_available, prep_time_minutes: parseInt(form.prep_time_minutes),
-      establishment_id: estId,
-    };
+
     try {
+      let photo_url = editing?.photo_url ?? null;
+
+      if (photo) {
+        const itemId = editing?.id ?? crypto.randomUUID();
+        const ext = photo.name.split(".").pop() ?? "jpg";
+        const path = `${estId}/${itemId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("menu-photos")
+          .upload(path, photo, { upsert: true });
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from("menu-photos").getPublicUrl(path);
+          photo_url = urlData.publicUrl;
+        }
+      }
+
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: parseFloat(form.price),
+        category: form.category,
+        is_available: form.is_available,
+        prep_time_minutes: parseInt(form.prep_time_minutes),
+        establishment_id: estId,
+        photo_url,
+      };
+
       if (editing) {
         const { error } = await supabase.from("menu_items").update(payload).eq("id", editing.id);
         if (error) throw error;
@@ -90,6 +129,7 @@ function ParceiroCardapio() {
         if (error) throw error;
         toast.success("Item adicionado.");
       }
+
       await fetchItems(estId);
       setShowForm(false);
     } catch (err: any) {
@@ -152,7 +192,14 @@ function ParceiroCardapio() {
               <h2 className="mb-4 font-display text-lg uppercase tracking-wide text-primary">{cat}</h2>
               <div className="grid gap-3">
                 {items.filter(i => i.category === cat).map(item => (
-                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/50 bg-surface px-5 py-4">
+                  <div key={item.id} className="flex items-center gap-4 rounded-xl border border-border/50 bg-surface px-5 py-4">
+                    {item.photo_url ? (
+                      <img src={item.photo_url} alt={item.name} className="size-16 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="size-16 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0">
+                        <ImagePlus size={20} className="text-muted-foreground" />
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <span className="font-medium text-foreground">{item.name}</span>
@@ -185,9 +232,28 @@ function ParceiroCardapio() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-surface p-6">
+          <div className="w-full max-w-lg rounded-2xl border border-border/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="mb-6 font-display text-xl uppercase">{editing ? "Editar item" : "Novo item"}</h2>
             <form onSubmit={handleSave} className="grid gap-4">
+
+              {/* Foto */}
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground mb-2">Foto do prato</label>
+                <div className="flex items-center gap-4">
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="preview" className="size-20 rounded-lg object-cover" />
+                  ) : (
+                    <div className="size-20 rounded-lg bg-background border border-dashed border-border flex items-center justify-center">
+                      <ImagePlus size={24} className="text-muted-foreground" />
+                    </div>
+                  )}
+                  <label className="cursor-pointer rounded-md border border-border px-4 py-2 text-sm hover:border-primary">
+                    Escolher foto
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                  </label>
+                </div>
+              </div>
+
               <Field label="Nome" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
               <Field label="Descrição" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
               <div className="grid grid-cols-2 gap-4">
