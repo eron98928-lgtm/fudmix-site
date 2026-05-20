@@ -17,22 +17,33 @@ function ParceiroDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const load = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate({ to: "/login" }); return; }
-      const role = session.user.user_metadata?.role;
-      if (role !== "parceiro") { navigate({ to: "/app" }); return; }
-      setUser(session.user);
+  const load = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { navigate({ to: "/login" }); return; }
+    const role = session.user.user_metadata?.role;
+    if (role !== "parceiro") { navigate({ to: "/app" }); return; }
+    setUser(session.user);
+
+    // Busca o user pelo auth_id primeiro
+    const { data: userData } = await supabase
+      .from("users")
+      .select("id")
+      .eq("auth_id", session.user.id)
+      .maybeSingle();
+
+    if (userData) {
       const { data } = await supabase
         .from("establishments")
         .select("*")
-        .eq("owner_id", session.user.id)
+        .eq("owner_id", userData.id)
         .maybeSingle();
       setEst(data);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    }
+
+    setLoading(false);
+  };
+  load();
+}, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
