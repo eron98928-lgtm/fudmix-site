@@ -64,18 +64,27 @@ function AppPage() {
   }, []);
 
   const handleLocation = () => {
-    setLocating(true);
-    if (!navigator.geolocation) { toast.error("Geolocalização não suportada."); setLocating(false); return; }
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setLocation(loc);
-        setLocating(false);
-        await loadEstablishments();
-      },
-      () => { toast.error("Permissão de localização negada."); setLocating(false); }
-    );
-  };
+  setLocating(true);
+  if (!navigator.geolocation) {
+    toast.error("Geolocalização não suportada.");
+    setLocating(false);
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setLocation(loc);
+      setLocating(false);
+      await loadEstablishments();
+    },
+    (err) => {
+      toast.error("Permissão de localização negada. Ative nas configurações do navegador.");
+      setLocating(false);
+      // NÃO navega, NÃO desloga — fica na tela de localização
+    },
+    { timeout: 10000, enableHighAccuracy: true }
+  );
+};
 
   const loadEstablishments = async () => {
     const { data } = await supabase.from("establishments").select("*").eq("is_active", true);
