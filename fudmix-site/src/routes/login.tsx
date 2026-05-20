@@ -30,9 +30,10 @@ function LoginPage() {
     const password = formData.get("password") as string;
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate({ to: "/app" });
+      const role = data.user?.user_metadata?.role;
+      navigate({ to: role === "parceiro" ? "/parceiro/dashboard" : "/app" });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Erro ao entrar";
       toast.error(message === "Invalid login credentials" ? "Email ou senha incorretos." : message);
@@ -52,32 +53,20 @@ function LoginPage() {
           <div className="grid gap-5">
             <div>
               <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">Email</label>
-              <input
-                name="email"
-                type="email"
-                required
-                placeholder="voce@email.com"
-                className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+              <input name="email" type="email" required placeholder="voce@email.com"
+                className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <div>
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">Senha</label>
                 <a href="#" className="text-xs text-primary hover:underline">Esqueci</a>
               </div>
-              <input
-                name="password"
-                type="password"
-                required
-                className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
+              <input name="password" type="password" required
+                className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground transition hover:bg-primary-dim disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading}
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground transition hover:bg-primary-dim disabled:opacity-60">
             {loading ? <><Loader2 size={18} className="animate-spin" /> Entrando…</> : <>Entrar <ArrowRight size={18} /></>}
           </button>
           <p className="mt-6 text-center text-sm text-muted-foreground">
