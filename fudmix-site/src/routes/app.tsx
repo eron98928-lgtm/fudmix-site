@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, X, MapPin, Clock, Truck, Star, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
+import "leaflet/dist/leaflet.css";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
