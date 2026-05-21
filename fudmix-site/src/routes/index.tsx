@@ -44,20 +44,6 @@ function HomePage() {
   );
 }
 
-function HomePage() {
-  return (
-    <SiteLayout>
-      <Hero />
-      <Marquee />
-      <HowItWorks />
-      <ForClients />
-      <ForPartners />
-      <Pricing />
-      <Coverage />
-      <CTA />
-    </SiteLayout>
-  );
-}
 
 function Hero() {
   return (
