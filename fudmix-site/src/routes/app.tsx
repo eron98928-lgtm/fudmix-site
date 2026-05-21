@@ -1,57 +1,42 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, X, MapPin, Clock, Truck, Star, ShoppingBag } from "lucide-react";
+import { Loader2, X, MapPin, Clock, Truck, Star, ShoppingBag, User, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
-    meta: [
-      { title: "App — FUD MIX" },
-      { name: "description", content: "Encontre estabelecimentos perto de você." },
-    ],
+    meta: [{ title: "App — FUD MIX" }],
   }),
   component: AppPage,
 });
 
 type Establishment = {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  logo_url: string | null;
-  cover_url: string | null;
-  delivery_radius_km: number;
-  delivery_fee: number;
-  rating: number;
-  is_active: boolean;
-  prep_time_minutes: number;
-  category: string;
+  id: string; name: string; address: string; lat: number; lng: number;
+  logo_url: string | null; cover_url: string | null; delivery_radius_km: number;
+  delivery_fee: number; rating: number; is_active: boolean; prep_time_minutes: number; category: string;
 };
 
 type MenuItem = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  photo_url: string | null;
-  ingredients: string | null;
-  is_available: boolean;
-  prep_time_minutes: number;
+  id: string; name: string; description: string; price: number; category: string;
+  photo_url: string | null; ingredients: string | null; is_available: boolean; prep_time_minutes: number;
 };
+
+type User = { name: string; email: string; phone: string; };
 
 function AppPage() {
   const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [selected, setSelected] = useState<Establishment | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuLoading, setMenuLoading] = useState(false);
   const [view, setView] = useState<"mapa" | "lista">("mapa");
+  const [screen, setScreen] = useState<"home" | "map">("home");
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -60,6 +45,11 @@ function AppPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { navigate({ to: "/login" }); return; }
       if (session.user.user_metadata?.role === "parceiro") { navigate({ to: "/parceiro/dashboard" }); return; }
+      setUser({
+        name: session.user.user_metadata?.name ?? "",
+        email: session.user.email ?? "",
+        phone: session.user.user_metadata?.phone ?? "",
+      });
       setAuthChecked(true);
     });
   }, []);
@@ -81,15 +71,23 @@ function AppPage() {
       async (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setLocation(loc);
+        setLocationDenied(false);
         setLocating(false);
+        setScreen("map");
         await loadEstablishments();
       },
       () => {
-        toast.error("Permissão negada. Ative a localização nas configurações do navegador.");
+        setLocationDenied(true);
         setLocating(false);
+        toast.error("Permissão negada. Ative a localização nas configurações.");
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/" });
   };
 
   const loadMenu = async (estId: string) => {
@@ -106,49 +104,29 @@ function AppPage() {
   };
 
   useEffect(() => {
-    if (!location || !mapContainerRef.current || mapRef.current) return;
-
+    if (!location || !mapContainerRef.current || mapRef.current || screen !== "map") return;
     import("leaflet").then((L) => {
-      const map = L.default.map(mapContainerRef.current!, {
-        center: [location.lat, location.lng],
-        zoom: 13,
-      });
-
-      L.default.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-      }).addTo(map);
-
-      L.default.circleMarker([location.lat, location.lng], {
-        radius: 10, fillColor: "#E8B84B", fillOpacity: 1, color: "#fff", weight: 2,
-      }).addTo(map).bindPopup("Você está aqui");
-
+      const map = L.default.map(mapContainerRef.current!, { center: [location.lat, location.lng], zoom: 13 });
+      L.default.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(map);
+      L.default.circleMarker([location.lat, location.lng], { radius: 10, fillColor: "#E8B84B", fillOpacity: 1, color: "#fff", weight: 2 }).addTo(map).bindPopup("Você está aqui");
       mapRef.current = map;
     });
-  }, [location]);
+  }, [location, screen]);
 
   useEffect(() => {
     if (!mapRef.current || establishments.length === 0) return;
-
     import("leaflet").then((L) => {
       establishments.forEach((est) => {
         if (!est.lat || !est.lng) return;
-
         const icon = L.default.divIcon({
           className: "",
-          html: `
-            <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer">
-              <span style="background:#0a0a0a;color:#E8B84B;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;margin-bottom:4px;border:1px solid #E8B84B36">
-                ${est.name}
-              </span>
-              <div style="width:14px;height:14px;background:#E8B84B;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
-            </div>
-          `,
+          html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer">
+            <span style="background:#0a0a0a;color:#E8B84B;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;margin-bottom:4px;border:1px solid #E8B84B36">${est.name}</span>
+            <div style="width:14px;height:14px;background:#E8B84B;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
+          </div>`,
           iconAnchor: [7, 32],
         });
-
-        L.default.marker([est.lat, est.lng], { icon })
-          .addTo(mapRef.current)
-          .on("click", () => selectEst(est));
+        L.default.marker([est.lat, est.lng], { icon }).addTo(mapRef.current).on("click", () => selectEst(est));
       });
     });
   }, [establishments]);
@@ -159,31 +137,59 @@ function AppPage() {
     </div>
   );
 
-  if (!location) return (
-    <div className="flex h-screen flex-col items-center justify-center bg-background px-4 text-center">
-      <div className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-surface px-4 py-2 text-xs uppercase tracking-widest text-primary mb-8">
-        <MapPin size={14} /> Localização necessária
-      </div>
-      <h1 className="font-display text-5xl uppercase text-foreground md:text-7xl">
-        Onde você <span className="text-primary">está agora</span>?
-      </h1>
-      <p className="mt-6 max-w-xl text-lg text-foreground/70">
-        Ative sua localização para ver os estabelecimentos disponíveis perto de você.
-      </p>
-      <button onClick={handleLocation} disabled={locating}
-        className="mt-10 inline-flex items-center gap-2 rounded-md bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground hover:bg-primary-dim disabled:opacity-50">
-        {locating ? <><Loader2 className="animate-spin" size={20} /> Localizando...</> : <><MapPin size={20} /> Ativar localização</>}
-      </button>
+  // Tela Home / Perfil
+  if (screen === "home") return (
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border/50 bg-surface px-6 py-4">
+        <div className="mx-auto flex max-w-2xl items-center justify-between">
+          <span className="font-display text-xl uppercase tracking-widest text-primary">FUDMIX</span>
+          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:border-primary">
+            <LogOut size={14} /> Sair
+          </button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl px-6 py-10">
+        {/* Perfil */}
+        <div className="rounded-2xl border border-border/50 bg-surface p-6 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="size-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <User size={28} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="font-display text-xl uppercase text-foreground">{user?.name}</h2>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+              {user?.phone && <p className="text-sm text-muted-foreground">{user?.phone}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Ativar localização */}
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
+          <h3 className="font-display text-lg uppercase text-foreground mb-2">
+            {locationDenied ? "Localização bloqueada" : "Ver estabelecimentos"}
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {locationDenied
+              ? "Você bloqueou a localização. Ative nas configurações do navegador e tente novamente."
+              : "Ative sua localização para ver os estabelecimentos disponíveis perto de você."}
+          </p>
+          <button onClick={handleLocation} disabled={locating}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-dim disabled:opacity-50">
+            {locating ? <><Loader2 size={16} className="animate-spin" /> Localizando...</> : <><MapPin size={16} /> Ativar localização</>}
+          </button>
+        </div>
+      </main>
     </div>
   );
 
+  // Tela Mapa
   const menuCategories = [...new Set(menuItems.map(i => i.category))];
 
   return (
     <div className="flex h-screen bg-background overflow-hidden flex-col">
-      {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-surface">
-        <span className="font-display text-lg uppercase tracking-widest text-primary">FUDMIX</span>
+        <button onClick={() => setScreen("home")} className="font-display text-lg uppercase tracking-widest text-primary">FUDMIX</button>
         <div className="flex gap-2">
           <button onClick={() => setView("mapa")}
             className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-widest transition ${view === "mapa" ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary"}`}>
@@ -197,14 +203,12 @@ function AppPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Mapa */}
         {view === "mapa" && (
           <div className="flex-1 relative">
             <div ref={mapContainerRef} className="w-full h-full" />
           </div>
         )}
 
-        {/* Lista */}
         {view === "lista" && (
           <div className="flex-1 overflow-y-auto p-4">
             {establishments.length === 0 ? (
@@ -237,7 +241,6 @@ function AppPage() {
           </div>
         )}
 
-        {/* Sidebar do estabelecimento */}
         {selected && (
           <div className="w-full md:w-96 border-l border-border/50 bg-surface flex flex-col overflow-hidden absolute inset-0 md:relative md:inset-auto z-10">
             <div className="relative">
@@ -253,7 +256,6 @@ function AppPage() {
                 <X size={16} />
               </button>
             </div>
-
             <div className="p-4 border-b border-border/50">
               <h2 className="font-display text-xl uppercase text-foreground">{selected.name}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{selected.address}</p>
@@ -263,7 +265,6 @@ function AppPage() {
                 <span className="inline-flex items-center gap-1"><Truck size={12} /> R$ {selected.delivery_fee.toFixed(2)}</span>
               </div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-4">
               {menuLoading ? (
                 <div className="flex justify-center py-10"><Loader2 size={24} className="animate-spin text-primary" /></div>
