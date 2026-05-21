@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, X, MapPin, Clock, Truck, Star, ShoppingBag, User, LogOut, Pencil } from "lucide-react";
+import { Loader2, X, MapPin, Clock, Truck, Star, ShoppingBag, User, LogOut, Pencil, ShoppingCart, Plus } from "lucide-react";
 import { toast } from "sonner";
 import "leaflet/dist/leaflet.css";
 
@@ -19,6 +19,11 @@ type Establishment = {
 type MenuItem = {
   id: string; name: string; description: string; price: number; category: string;
   photo_url: string | null; ingredients: string | null; is_available: boolean; prep_time_minutes: number;
+};
+
+type CartItem = {
+  id: string; name: string; price: number; photo_url: string | null;
+  establishment_id: string; establishment_name: string; quantity: number; notes: string;
 };
 
 type UserProfile = { name: string; email: string; phone: string; };
@@ -46,6 +51,7 @@ function AppPage() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", phone: "" });
   const [savingProfile, setSavingProfile] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -62,35 +68,34 @@ function AppPage() {
       setUser(profile);
       setAuthUser(session.user);
       setEditForm({ name: profile.name, phone: profile.phone });
+
+      // Carrega carrinho do sessionStorage
+      const saved = sessionStorage.getItem("fudmix_cart");
+      if (saved) setCart(JSON.parse(saved));
+
       setAuthChecked(true);
     });
   }, []);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingProfile(true);
-    try {
-      const { error } = await supabase.auth.updateUser({
-        data: { name: editForm.name, phone: editForm.phone },
-      });
-      if (error) throw error;
-
-      // Atualiza tabela users também
-      if (authUser) {
-        await supabase.from("users")
-          .update({ name: editForm.name, phone: editForm.phone })
-          .eq("auth_id", authUser.id);
+  const addToCart = (item: MenuItem, est: Establishment) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.id === item.id);
+      let updated;
+      if (existing) {
+        updated = prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      } else {
+        updated = [...prev, {
+          id: item.id, name: item.name, price: item.price, photo_url: item.photo_url,
+          establishment_id: est.id, establishment_name: est.name, quantity: 1, notes: "",
+        }];
       }
-
-      setUser(u => u ? { ...u, name: editForm.name, phone: editForm.phone } : u);
-      setEditingProfile(false);
-      toast.success("Perfil atualizado.");
-    } catch (err: any) {
-      toast.error(err.message ?? "Erro ao salvar.");
-    } finally {
-      setSavingProfile(false);
-    }
+      sessionStorage.setItem("fudmix_cart", JSON.stringify(updated));
+      return updated;
+    });
+    toast.success(`${item.name} adicionado ao carrinho.`);
   };
+
+  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
   const loadEstablishments = async () => {
     const { data } = await supabase.from("establishments").select("*").eq("is_active", true);
@@ -104,7 +109,9 @@ function AppPage() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setLocation(loc); setLocationDenied(false); setLocating(false);
+        setLocation(loc);
+        sessionStorage.setItem("fudmix_location", JSON.stringify(loc));
+        setLocationDenied(false); setLocating(false);
         setScreen("map"); await loadEstablishments();
       },
       () => { setLocationDenied(true); setLocating(false); toast.error("Permissão negada. Ative a localização nas configurações."); },
@@ -113,6 +120,23 @@ function AppPage() {
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); navigate({ to: "/" }); };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { name: editForm.name, phone: editForm.phone } });
+      if (error) throw error;
+      if (authUser) {
+        await supabase.from("users").update({ name: editForm.name, phone: editForm.phone }).eq("auth_id", authUser.id);
+      }
+      setUser(u => u ? { ...u, name: editForm.name, phone: editForm.phone } : u);
+      setEditingProfile(false);
+      toast.success("Perfil atualizado.");
+    } catch (err: any) {
+      toast.error(err.message ?? "Erro ao salvar.");
+    } finally { setSavingProfile(false); }
+  };
 
   const loadMenu = async (estId: string) => {
     setMenuLoading(true);
@@ -161,14 +185,19 @@ function AppPage() {
       <header className="border-b border-border/50 bg-surface px-6 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <span className="font-display text-xl uppercase tracking-widest text-primary">FUDMIX</span>
-          <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:border-primary">
-            <LogOut size={14} /> Sair
-          </button>
+          <div className="flex items-center gap-2">
+            <Link to="/app/carrinho" className="relative inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:border-primary">
+              <ShoppingCart size={14} />
+              {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-xs font-bold text-primary-foreground flex items-center justify-center">{cartCount}</span>}
+            </Link>
+            <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:border-primary">
+              <LogOut size={14} /> Sair
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-6 py-10">
-        {/* Perfil */}
         <div className="rounded-2xl border border-border/50 bg-surface p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -181,14 +210,12 @@ function AppPage() {
                 {user?.phone && <p className="text-sm text-muted-foreground">{user?.phone}</p>}
               </div>
             </div>
-            <button onClick={() => setEditingProfile(true)}
-              className="rounded-md border border-border p-2 hover:border-primary">
+            <button onClick={() => setEditingProfile(true)} className="rounded-md border border-border p-2 hover:border-primary">
               <Pencil size={14} />
             </button>
           </div>
         </div>
 
-        {/* Ver estabelecimentos */}
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
           <h3 className="font-display text-lg uppercase text-foreground mb-2">
             {locationDenied ? "Localização bloqueada" : "Ver estabelecimentos"}
@@ -205,7 +232,6 @@ function AppPage() {
         </div>
       </main>
 
-      {/* Modal edição de perfil */}
       {editingProfile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl border border-border/50 bg-surface p-6">
@@ -223,16 +249,13 @@ function AppPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">Telefone</label>
-                <input value={editForm.phone}
-                  onChange={e => setEditForm(f => ({ ...f, phone: formatPhoneBR(e.target.value) }))}
+                <input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: formatPhoneBR(e.target.value) }))}
                   maxLength={15} placeholder="(11) 99999-9999"
                   className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30" />
               </div>
               <div className="mt-2 flex gap-3">
                 <button type="button" onClick={() => setEditingProfile(false)}
-                  className="flex-1 rounded-md border border-border py-2.5 text-sm font-medium hover:border-primary">
-                  Cancelar
-                </button>
+                  className="flex-1 rounded-md border border-border py-2.5 text-sm font-medium hover:border-primary">Cancelar</button>
                 <button type="submit" disabled={savingProfile}
                   className="flex-1 rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-dim disabled:opacity-60">
                   {savingProfile ? <Loader2 size={16} className="animate-spin mx-auto" /> : "Salvar"}
@@ -251,7 +274,7 @@ function AppPage() {
     <div className="flex h-screen bg-background overflow-hidden flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-surface">
         <button onClick={() => setScreen("home")} className="font-display text-lg uppercase tracking-widest text-primary">FUDMIX</button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button onClick={() => setView("mapa")}
             className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-widest transition ${view === "mapa" ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary"}`}>
             Mapa
@@ -260,6 +283,10 @@ function AppPage() {
             className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-widest transition ${view === "lista" ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary"}`}>
             Lista
           </button>
+          <Link to="/app/carrinho" className="relative inline-flex items-center rounded-md border border-border p-1.5 hover:border-primary">
+            <ShoppingCart size={16} />
+            {cartCount > 0 && <span className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-primary text-xs font-bold text-primary-foreground flex items-center justify-center">{cartCount}</span>}
+          </Link>
         </div>
       </div>
 
@@ -331,7 +358,13 @@ function AppPage() {
                             <p className="font-medium text-sm text-foreground">{item.name}</p>
                             {item.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.description}</p>}
                             {item.ingredients && <p className="text-xs text-muted-foreground/60 mt-0.5 line-clamp-1">🧾 {item.ingredients}</p>}
-                            <p className="text-sm font-semibold text-primary mt-1">R$ {item.price.toFixed(2)}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className="text-sm font-semibold text-primary">R$ {item.price.toFixed(2)}</p>
+                              <button onClick={() => addToCart(item, selected)}
+                                className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary-dim">
+                                <Plus size={12} /> Adicionar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
