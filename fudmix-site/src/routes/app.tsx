@@ -53,6 +53,7 @@ function AppPage() {
   const [menuLoading, setMenuLoading] = useState(false);
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,27 +65,27 @@ function AppPage() {
   }, []);
 
   const handleLocation = () => {
-  setLocating(true);
-  if (!navigator.geolocation) {
-    toast.error("Geolocalização não suportada.");
-    setLocating(false);
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setLocation(loc);
+    setLocating(true);
+    if (!navigator.geolocation) {
+      toast.error("Geolocalização não suportada.");
       setLocating(false);
-      await loadEstablishments();
-    },
-    (err) => {
-      toast.error("Permissão de localização negada. Ative nas configurações do navegador.");
-      setLocating(false);
-      // NÃO navega, NÃO desloga — fica na tela de localização
-    },
-    { timeout: 10000, enableHighAccuracy: true }
-  );
-};
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLocation(loc);
+        setLocating(false);
+        await loadEstablishments();
+      },
+      (err) => {
+        toast.error("Permissão de localização negada. Ative nas configurações do navegador.");
+        setLocating(false);
+        // NÃO navega, NÃO desloga — fica na tela de localização
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
 
   const loadEstablishments = async () => {
     const { data } = await supabase.from("establishments").select("*").eq("is_active", true);
@@ -127,13 +128,21 @@ function AppPage() {
     });
   }, [location]);
 
-  // Adiciona pins dos estabelecimentos
+  // Adiciona pins dos estabelecimentos — CORRIGIDO para não duplicar
   useEffect(() => {
     if (!mapRef.current || establishments.length === 0) return;
 
     import("leaflet").then((L) => {
+      // Remove todos os marcadores antigos
+      markersRef.current.forEach(marker => mapRef.current.removeLayer(marker));
+      markersRef.current = [];
+
       establishments.forEach((est) => {
         if (!est.lat || !est.lng) return;
+
+        // Indicador de aberto/fechado
+        const statusColor = est.is_active ? "#22c55e" : "#ef4444";
+        const statusText = est.is_active ? "Aberto" : "Fechado";
 
         const icon = L.default.divIcon({
           className: "",
@@ -143,14 +152,19 @@ function AppPage() {
                 ${est.name}
               </span>
               <div style="width:16px;height:16px;background:#E8B84B;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>
+              <span style="background:${statusColor};color:#fff;font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-top:2px;white-space:nowrap">
+                ${statusText}
+              </span>
             </div>
           `,
-          iconAnchor: [8, 32],
+          iconAnchor: [8, 40],
         });
 
-        L.default.marker([est.lat, est.lng], { icon })
+        const marker = L.default.marker([est.lat, est.lng], { icon })
           .addTo(mapRef.current)
           .on("click", () => selectEst(est));
+
+        markersRef.current.push(marker);
       });
     });
   }, [establishments]);
