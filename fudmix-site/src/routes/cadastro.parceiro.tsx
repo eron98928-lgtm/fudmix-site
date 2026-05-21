@@ -30,6 +30,8 @@ type FormData = {
   radius: string;
   deliveryFee: string;
   photo: File | null;
+  lat?: number;
+  lng?: number;
 };
 
 const initial: FormData = {
@@ -37,6 +39,8 @@ const initial: FormData = {
   razaoSocial: "", cnpj: "", address: "",
   schedule: "", radius: "5", deliveryFee: "",
   photo: null,
+  lat: undefined,
+  lng: undefined,
 };
 
 function ParceiroCadastroPage() {
@@ -45,11 +49,27 @@ function ParceiroCadastroPage() {
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const [cnpjValid, setCnpjValid] = useState(false);
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = <K extends keyof FormData>(k: K, v: FormData[K]) =>
     setData((d) => ({ ...d, [k]: v }));
+
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&countrycodes=br&limit=1`
+      );
+      const results = await response.json();
+      if (results.length > 0) {
+        return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const validateCnpj = async (): Promise<boolean> => {
     const clean = data.cnpj.replace(/\D/g, "");
@@ -64,12 +84,19 @@ function ParceiroCadastroPage() {
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
       if (!r.ok) throw new Error("CNPJ não encontrado");
       const json = await r.json();
+      const newAddress = json.logradouro
+        ? `${json.logradouro}, ${json.numero ?? ""} — ${json.municipio}/${json.uf}`
+        : data.address;
+      
+      // Fazer geocoding automático do endereço
+      const coords = await geocodeAddress(newAddress);
+      
       setData((d) => ({
         ...d,
         razaoSocial: json.razao_social || d.razaoSocial,
-        address: d.address || (json.logradouro
-          ? `${json.logradouro}, ${json.numero ?? ""} — ${json.municipio}/${json.uf}`
-          : d.address),
+        address: newAddress,
+        lat: coords?.lat,
+        lng: coords?.lng,
       }));
       setCnpjValid(true);
       return true;
@@ -82,10 +109,35 @@ function ParceiroCadastroPage() {
     }
   };
 
+  const handleAddressChange = async (address: string) => {
+    set("address", address);
+    
+    // Fazer geocoding automático após digitar o endereço
+    if (address.length > 10) {
+      setGeocodingLoading(true);
+      const coords = await geocodeAddress(address);
+      if (coords) {
+        setData((d) => ({ ...d, lat: coords.lat, lng: coords.lng }));
+      }
+      setGeocodingLoading(false);
+    }
+  };
+
   const handleSignup = async () => {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // Se não tiver coordenadas, tenta fazer geocoding
+      let lat = data.lat;
+      let lng = data.lng;
+      if (!lat || !lng) {
+        const coords = await geocodeAddress(data.address);
+        if (coords) {
+          lat = coords.lat;
+          lng = coords.lng;
+        }
+      }
+
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -100,6 +152,8 @@ function ParceiroCadastroPage() {
             schedule: data.schedule,
             radius: data.radius,
             delivery_fee: data.deliveryFee,
+            lat: lat,
+            lng: lng,
           },
         },
       });
@@ -109,7 +163,7 @@ function ParceiroCadastroPage() {
       if (authData.user && data.photo) {
         const ext = data.photo.name.split(".").pop() ?? "jpg";
         await supabase.storage
-          .from("partner-photos")
+          .from("establishment-photos")
           .upload(`${authData.user.id}/photo.${ext}`, data.photo, { upsert: true });
       }
 
@@ -215,7 +269,22 @@ function ParceiroCadastroPage() {
               </div>
 
               <Field label="Razão social" value={data.razaoSocial} onChange={(v) => set("razaoSocial", v)} required />
-              <Field label="Endereço completo" value={data.address} onChange={(v) => set("address", v)} required placeholder="Rua, número, bairro, cidade/UF" />
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">Endereço completo</label>
+                <div className="mt-2 flex gap-2 items-center">
+                  <input
+                    value={data.address}
+                    onChange={(e) => handleAddressChange(e.target.value)}
+                    placeholder="Rua, número, bairro, cidade/UF"
+                    required
+                    className="flex-1 rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  {geocodingLoading && <Loader2 size={16} className="animate-spin text-primary" />}
+                </div>
+                {data.lat && data.lng && (
+                  <p className="mt-2 text-xs text-success">✓ Localização encontrada: {data.lat.toFixed(4)}, {data.lng.toFixed(4)}</p>
+                )}
+              </div>
             </StepBlock>
           )}
 
@@ -297,6 +366,13 @@ function StepBlock({ title, subtitle, children }: { title: string; subtitle: str
   );
 }
 
+function formatPhoneBR(value: string): string {
+  const clean = value.replace(/\D/g, "");
+  if (clean.length <= 2) return clean;
+  if (clean.length <= 7) return `(${clean.slice(0, 2)}) ${clean.slice(2)}`;
+  return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
+}
+
 function Field({ label, value, onChange, type = "text", required, placeholder, minLength }: {
   label: string;
   value: string;
@@ -306,16 +382,25 @@ function Field({ label, value, onChange, type = "text", required, placeholder, m
   placeholder?: string;
   minLength?: number;
 }) {
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (type === "tel") {
+      onChange(formatPhoneBR(e.target.value));
+    } else {
+      onChange(e.target.value);
+    }
+  };
+
   return (
     <div>
       <label className="block text-xs font-medium uppercase tracking-widest text-muted-foreground">{label}</label>
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handlePhoneChange}
         type={type}
         required={required}
         placeholder={placeholder}
         minLength={minLength}
+        maxLength={type === "tel" ? 15 : undefined}
         className="mt-2 w-full rounded-md border border-border bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
     </div>
