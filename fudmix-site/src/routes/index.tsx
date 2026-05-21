@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, MapPin, ShoppingBag, Bike, QrCode, CheckCircle2, Sparkles, Store, Beer, Users, Smartphone } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import heroImage from "@/assets/hero-table.jpg";
@@ -16,6 +18,31 @@ export const Route = createFileRoute("/")({
   }),
   component: HomePage,
 });
+
+function HomePage() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      const role = session.user.user_metadata?.role;
+      navigate({ to: role === "parceiro" ? "/parceiro/dashboard" : "/app" });
+    });
+  }, []);
+
+  return (
+    <SiteLayout>
+      <Hero />
+      <Marquee />
+      <HowItWorks />
+      <ForClients />
+      <ForPartners />
+      <Pricing />
+      <Coverage />
+      <CTA />
+    </SiteLayout>
+  );
+}
 
 function HomePage() {
   return (
