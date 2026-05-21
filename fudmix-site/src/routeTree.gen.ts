@@ -14,6 +14,7 @@ import { Route as CadastroClienteRouteImport } from './routes/cadastro.cliente'
 import { Route as ParceiroDashboardRouteImport } from './routes/parceiro/dashboard'
 import { Route as ParceiroCardapioRouteImport } from './routes/parceiro/cardapio'
 import { Route as AppCarrinhoRouteImport } from './routes/app.carrinho'
+import { Route as ParceiroPedidosRouteImport } from './routes/parceiro/pedidos'
 
 const TermosRoute = TermosRouteImport.update({ id: '/termos', path: '/termos', getParentRoute: () => rootRouteImport } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({ id: '/sitemap.xml', path: '/sitemap.xml', getParentRoute: () => rootRouteImport } as any)
@@ -26,6 +27,7 @@ const CadastroClienteRoute = CadastroClienteRouteImport.update({ id: '/cadastro/
 const ParceiroDashboardRoute = ParceiroDashboardRouteImport.update({ id: '/parceiro/dashboard', path: '/parceiro/dashboard', getParentRoute: () => rootRouteImport } as any)
 const ParceiroCardapioRoute = ParceiroCardapioRouteImport.update({ id: '/parceiro/cardapio', path: '/parceiro/cardapio', getParentRoute: () => rootRouteImport } as any)
 const AppCarrinhoRoute = AppCarrinhoRouteImport.update({ id: '/app/carrinho', path: '/app/carrinho', getParentRoute: () => rootRouteImport } as any)
+const ParceiroPedidosRoute = ParceiroPedidosRouteImport.update({ id: '/parceiro/pedidos', path: '/parceiro/pedidos', getParentRoute: () => rootRouteImport } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -39,6 +41,7 @@ export interface FileRoutesByFullPath {
   '/parceiro/dashboard': typeof ParceiroDashboardRoute
   '/parceiro/cardapio': typeof ParceiroCardapioRoute
   '/app/carrinho': typeof AppCarrinhoRoute
+  '/parceiro/pedidos': typeof ParceiroPedidosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -52,6 +55,7 @@ export interface FileRoutesByTo {
   '/parceiro/dashboard': typeof ParceiroDashboardRoute
   '/parceiro/cardapio': typeof ParceiroCardapioRoute
   '/app/carrinho': typeof AppCarrinhoRoute
+  '/parceiro/pedidos': typeof ParceiroPedidosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -66,13 +70,14 @@ export interface FileRoutesById {
   '/parceiro/dashboard': typeof ParceiroDashboardRoute
   '/parceiro/cardapio': typeof ParceiroCardapioRoute
   '/app/carrinho': typeof AppCarrinhoRoute
+  '/parceiro/pedidos': typeof ParceiroPedidosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho'
+  fullPaths: '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho' | '/parceiro/pedidos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho'
-  id: '__root__' | '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho'
+  to: '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho' | '/parceiro/pedidos'
+  id: '__root__' | '/' | '/app' | '/login' | '/privacidade' | '/sitemap.xml' | '/termos' | '/cadastro/cliente' | '/cadastro/parceiro' | '/parceiro/dashboard' | '/parceiro/cardapio' | '/app/carrinho' | '/parceiro/pedidos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -87,6 +92,7 @@ export interface RootRouteChildren {
   ParceiroDashboardRoute: typeof ParceiroDashboardRoute
   ParceiroCardapioRoute: typeof ParceiroCardapioRoute
   AppCarrinhoRoute: typeof AppCarrinhoRoute
+  ParceiroPedidosRoute: typeof ParceiroPedidosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +108,7 @@ declare module '@tanstack/react-router' {
     '/parceiro/dashboard': { id: '/parceiro/dashboard'; path: '/parceiro/dashboard'; fullPath: '/parceiro/dashboard'; preLoaderRoute: typeof ParceiroDashboardRouteImport; parentRoute: typeof rootRouteImport }
     '/parceiro/cardapio': { id: '/parceiro/cardapio'; path: '/parceiro/cardapio'; fullPath: '/parceiro/cardapio'; preLoaderRoute: typeof ParceiroCardapioRouteImport; parentRoute: typeof rootRouteImport }
     '/app/carrinho': { id: '/app/carrinho'; path: '/app/carrinho'; fullPath: '/app/carrinho'; preLoaderRoute: typeof AppCarrinhoRouteImport; parentRoute: typeof rootRouteImport }
+    '/parceiro/pedidos': { id: '/parceiro/pedidos'; path: '/parceiro/pedidos'; fullPath: '/parceiro/pedidos'; preLoaderRoute: typeof ParceiroPedidosRouteImport; parentRoute: typeof rootRouteImport }
   }
 }
 
@@ -117,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParceiroDashboardRoute,
   ParceiroCardapioRoute,
   AppCarrinhoRoute,
+  ParceiroPedidosRoute,
 }
 
 export const routeTree = rootRouteImport
