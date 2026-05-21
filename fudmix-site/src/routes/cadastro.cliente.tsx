@@ -22,29 +22,37 @@ function ClienteCadastroPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
+ const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const name = formData.get("name") as string;
-    const phone = formData.get("phone") as string;
+  const formData = new FormData(e.currentTarget);
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const name = formData.get("name") as string;
+  const phone = formData.get("phone") as string;
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            phone,
-            role: "cliente",
-          },
-        },
-      });
+  try {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, phone, role: "cliente" },
+      },
+    });
 
+    if (error) throw error;
+    
+    // Login automático após cadastro
+    await supabase.auth.signInWithPassword({ email, password });
+    window.location.href = "/app";
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro ao criar conta";
+    toast.error(message);
+  } finally {
+    setLoading(false);
+  }
+};
       if (error) throw error;
       setDone(true);
     } catch (error: unknown) {
