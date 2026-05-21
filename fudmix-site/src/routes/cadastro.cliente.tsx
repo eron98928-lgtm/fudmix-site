@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Field } from "@/components/ui/custom-field";
@@ -20,41 +20,30 @@ export const Route = createFileRoute("/cadastro/cliente")({
 
 function ClienteCadastroPage() {
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
- const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
 
-  const formData = new FormData(e.currentTarget);
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const name = formData.get("name") as string;
-  const phone = formData.get("phone") as string;
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const name = formData.get("name") as string;
+    const phone = formData.get("phone") as string;
 
-  try {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, phone, role: "cliente" },
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name, phone, role: "cliente" },
+        },
+      });
 
-    if (error) throw error;
-    
-    // Login automático após cadastro
-    await supabase.auth.signInWithPassword({ email, password });
-    window.location.href = "/app";
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Erro ao criar conta";
-    toast.error(message);
-  } finally {
-    setLoading(false);
-  }
-};
       if (error) throw error;
-      setDone(true);
+
+      await supabase.auth.signInWithPassword({ email, password });
+      window.location.href = "/app";
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Erro ao criar conta";
       toast.error(message);
@@ -62,23 +51,6 @@ function ClienteCadastroPage() {
       setLoading(false);
     }
   };
-
-  if (done) {
-    return (
-      <SiteLayout>
-        <section className="mx-auto flex max-w-2xl flex-col items-center px-4 py-32 text-center md:px-8 md:py-44">
-          <CheckCircle2 size={64} className="text-success" strokeWidth={1.2} />
-          <h1 className="mt-6 font-display text-4xl uppercase text-foreground md:text-6xl">Conta criada!</h1>
-          <p className="mt-4 max-w-md text-foreground/70">
-            Enviamos um link de confirmação para o seu e-mail. Verifique sua caixa de entrada para ativar sua conta.
-          </p>
-          <Link to="/login" className="mt-8 text-sm uppercase tracking-widest text-primary hover:text-primary-dim">
-            Ir para o login
-          </Link>
-        </section>
-      </SiteLayout>
-    );
-  }
 
   return (
     <SiteLayout>
