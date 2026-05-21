@@ -17,6 +17,8 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CadastroParceiroRouteImport } from './routes/cadastro.parceiro'
 import { Route as CadastroClienteRouteImport } from './routes/cadastro.cliente'
+import { Route as ParceiroDashboardRouteImport } from './routes/parceiro/dashboard'
+import { Route as ParceiroCardapioRouteImport } from './routes/parceiro/cardapio'
 
 const TermosRoute = TermosRouteImport.update({
   id: '/termos',
@@ -58,6 +60,16 @@ const CadastroClienteRoute = CadastroClienteRouteImport.update({
   path: '/cadastro/cliente',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParceiroDashboardRoute = ParceiroDashboardRouteImport.update({
+  id: '/parceiro/dashboard',
+  path: '/parceiro/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParceiroCardapioRoute = ParceiroCardapioRouteImport.update({
+  id: '/parceiro/cardapio',
+  path: '/parceiro/cardapio',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +80,8 @@ export interface FileRoutesByFullPath {
   '/termos': typeof TermosRoute
   '/cadastro/cliente': typeof CadastroClienteRoute
   '/cadastro/parceiro': typeof CadastroParceiroRoute
+  '/parceiro/dashboard': typeof ParceiroDashboardRoute
+  '/parceiro/cardapio': typeof ParceiroCardapioRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByTo {
   '/termos': typeof TermosRoute
   '/cadastro/cliente': typeof CadastroClienteRoute
   '/cadastro/parceiro': typeof CadastroParceiroRoute
+  '/parceiro/dashboard': typeof ParceiroDashboardRoute
+  '/parceiro/cardapio': typeof ParceiroCardapioRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +105,8 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/cadastro/cliente': typeof CadastroClienteRoute
   '/cadastro/parceiro': typeof CadastroParceiroRoute
+  '/parceiro/dashboard': typeof ParceiroDashboardRoute
+  '/parceiro/cardapio': typeof ParceiroCardapioRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +119,8 @@ export interface FileRouteTypes {
     | '/termos'
     | '/cadastro/cliente'
     | '/cadastro/parceiro'
+    | '/parceiro/dashboard'
+    | '/parceiro/cardapio'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +131,8 @@ export interface FileRouteTypes {
     | '/termos'
     | '/cadastro/cliente'
     | '/cadastro/parceiro'
+    | '/parceiro/dashboard'
+    | '/parceiro/cardapio'
   id:
     | '__root__'
     | '/'
@@ -121,6 +143,8 @@ export interface FileRouteTypes {
     | '/termos'
     | '/cadastro/cliente'
     | '/cadastro/parceiro'
+    | '/parceiro/dashboard'
+    | '/parceiro/cardapio'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +156,8 @@ export interface RootRouteChildren {
   TermosRoute: typeof TermosRoute
   CadastroClienteRoute: typeof CadastroClienteRoute
   CadastroParceiroRoute: typeof CadastroParceiroRoute
+  ParceiroDashboardRoute: typeof ParceiroDashboardRoute
+  ParceiroCardapioRoute: typeof ParceiroCardapioRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +218,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CadastroClienteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parceiro/dashboard': {
+      id: '/parceiro/dashboard'
+      path: '/parceiro/dashboard'
+      fullPath: '/parceiro/dashboard'
+      preLoaderRoute: typeof ParceiroDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parceiro/cardapio': {
+      id: '/parceiro/cardapio'
+      path: '/parceiro/cardapio'
+      fullPath: '/parceiro/cardapio'
+      preLoaderRoute: typeof ParceiroCardapioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +244,8 @@ const rootRouteChildren: RootRouteChildren = {
   TermosRoute: TermosRoute,
   CadastroClienteRoute: CadastroClienteRoute,
   CadastroParceiroRoute: CadastroParceiroRoute,
+  ParceiroDashboardRoute: ParceiroDashboardRoute,
+  ParceiroCardapioRoute: ParceiroCardapioRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
